@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>📊 Dashboard de Casos</title>
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+  <script src="https://d3js.org/d3.v5.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f5f7fa;
+      margin: 0;
+      padding: 20px;
+    }
+    h2 {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .filtros {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .filtros select {
+      margin: 0 10px;
+      padding: 5px;
+    }
+    .tablero {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    .grafico {
+      background: white;
+      border-radius: 12px;
+      padding: 10px;
+      box-shadow: 0px 2px 6px rgba(0,0,0,0.15);
+    }
+    .ancho-total {
+      grid-column: span 2;
+    }
+  </style>
+</head>
+<body>
+  <h2>📊 Dashboard de Casos</h2>
+
+  <div class="filtros">
+    <label>Seleccionar CSV:
+      <select id="selectorCSV">
+        <option value="salida_analisis-boyaca.csv">Boyacá</option>
+        <option value="salida_analisis-tolima.csv">Tolima</option>
+        <option value="salida_analisis-putumayo.csv">Putumayo</option>
+        <option value="salida_analisis-medellin.csv">Medellín</option>
+      </select>
+    </label>
+
+    <label>Filtrar por FENÓMENO:
+      <select id="filtroFenomeno">
+        <option value="Todos">Todos</option>
+      </select>
+    </label>
+
+    <label>Filtrar por SUPERA UMBRAL:
+      <select id="filtroUmbral">
+        <option value="Todos">Todos</option>
+        <option value="true">SI</option>
+        <option value="false">NO</option>
+      </select>
+    </label>
+  </div>
+
+  <div id="resumen" style="text-align:center; margin-bottom: 20px; font-weight: bold;"></div>
+
+  <div class="tablero">
+    <div id="graficoBarras" class="grafico"></div>
+    <div id="graficoAnillo" class="grafico"></div>
+    <div id="graficoPromedio" class="grafico ancho-total"></div>
+  </div>
+
+  <script>
+    let data = [];
+    const UMBRAL = 14235000; // 10 SMLV en pesos
+
+    // Diccionario de mapeo
+    const fenomenoMap = {
+      "A": "Sabotaje",
+      "B": "Inversión Simulada",
+      "C": "Suplantación Financiera",
+      "NA": "No Clasificado"
+    };
+
+    // Función segura para parsear cuantías
+    function parseNumber(valor) {
+      if (!valor) return 0;
+      return parseFloat(
+        valor.toString()
+             .replace(/\./g, "")   // elimina separadores de miles
+             .replace(/,/g, ".")   // convierte coma en decimal
+      ) || 0;
+    }
+
+    // Función para cargar datos desde el CSV seleccionado
+    function cargarCSV(url) {
+      d3.csv(url).then(csv => {
+        data = csv.map(d => ({
+          fenomeno: d.FENOMENO || "SIN_FENOMENO",
+          fenomenoLetra: d.FENOMENO_LETRA || "NA",
+          umbral: d.SUPERA_UMBRAL_SMLV ? d.SUPERA_UMBRAL_SMLV.toLowerCase() : "false",
+          cuantia: parseNumber(d.CUANTIA_MAXIMA) // cuantía ya viene en pesos
+        }));
+
+        // Limpiar select de fenómenos
+        const selectFenomeno = document.getElementById("filtroFenomeno");
+        selectFenomeno.innerHTML = '<option value="Todos">Todos</option>';
+
+        // Poblar opciones de FENOMENO dinámicamente
+        const fenomenosUnicos = Array.from(new Set(data.map(d => d.fenomeno)));
+        fenomenosUnicos.forEach(f => {
+          const opt = document.createElement("option");
+          opt.value = f;
+          opt.textContent = f;
+          selectFenomeno.appendChild(opt);
+        });
+
+        actualizarGraficos();
+      });
+    }
+
+    function actualizarGraficos() {
+      const filtroFenomeno = document.getElementById("filtroFenomeno").value;
+      const filtroUmbral = document.getElementById("filtroUmbral").value;
+
+      // Filtrar datos
+      let filtrados = data.filter(d => 
+        (filtroFenomeno === "Todos" || d.fenomeno === filtroFenomeno) &&
+        (filtroUmbral === "Todos" || d.umbral === filtroUmbral)
+      );
+
+      // Resumen
+      const total = data.length;
+      const totalFiltrados = filtrados.length;
+      const porcentaje = ((totalFiltrados / total) * 100).toFixed(1);
+      document.getElementById("resumen").innerText =
+        `Casos filtrados: ${totalFiltrados} (${porcentaje}%) de ${total}`;
+
+      // Agrupar por fenómeno letra (con nombres largos)
+      const conteoFenomeno = {};
+      filtrados.forEach(d => {
+        const nombre = fenomenoMap[d.fenomenoLetra] || d.fenomenoLetra;
+        conteoFenomeno[nombre] = (conteoFenomeno[nombre] || 0) + 1;
+      });
+
+      // Agrupar por umbral
+      const conteoUmbral = {};
+      filtrados.forEach(d => {
+        conteoUmbral[d.umbral] = (conteoUmbral[d.umbral] || 0) + 1;
+      });
+
+      // Gráfico de barras
+      Plotly.newPlot("graficoBarras", [{
+        x: Object.keys(conteoFenomeno),
+        y: Object.values(conteoFenomeno),
+        type: "bar",
+        marker: {color: "#3498db"},
+        text: Object.values(conteoFenomeno),
+        textposition: "outside"
+      }], {
+        title: "Casos por Fenómeno",
+        xaxis: {automargin: true},
+        yaxis: {automargin: true, rangemode: "tozero"},
+        margin: {t: 60, b: 60, l: 60, r: 40}
+      });
+
+      // Gráfico de anillo
+      Plotly.newPlot("graficoAnillo", [{
+        labels: Object.keys(conteoUmbral),
+        values: Object.values(conteoUmbral),
+        type: "pie",
+        hole: 0.5,
+        marker: {colors: ["#2ecc71", "#e74c3c"]}
+      }], {
+        title: "Distribución por SUPERA UMBRAL 10 SMLV"
+      });
+
+      // 📊 Gráfico de promedio de cuantías
+      const promedioFenomeno = {};
+      filtrados.forEach(d => {
+        const nombre = fenomenoMap[d.fenomenoLetra] || d.fenomenoLetra;
+        if (!promedioFenomeno[nombre]) {
+          promedioFenomeno[nombre] = {suma: 0, count: 0};
+        }
+        promedioFenomeno[nombre].suma += d.cuantia;
+        promedioFenomeno[nombre].count += 1;
+      });
+
+      const x = Object.keys(promedioFenomeno);
+      const yPromedio = x.map(k => promedioFenomeno[k].suma / promedioFenomeno[k].count);
+
+      Plotly.newPlot("graficoPromedio", [
+        {
+          x: x,
+          y: yPromedio,
+          type: "bar",
+          name: "Promedio de Cuantías",
+          marker: {color: "#9b59b6"},
+          text: yPromedio.map(v => `$${v.toLocaleString("es-CO")}`),
+          textposition: "outside"
+        },
+        {
+          x: x,
+          y: Array(x.length).fill(UMBRAL),
+          type: "scatter",
+          mode: "lines",
+          name: "Umbral 10 SMLV ($14.235.000)",
+          line: {color: "red", dash: "dash"}
+        }
+      ], {
+        title: "Promedio de Cuantías por Fenómeno",
+        yaxis: {title: "Cuantía Promedio ($)", automargin: true, rangemode: "tozero"},
+        margin: {t: 80, b: 80, l: 80, r: 40}
+      });
+    }
+
+    // Listeners
+    document.getElementById("filtroFenomeno").addEventListener("change", actualizarGraficos);
+    document.getElementById("filtroUmbral").addEventListener("change", actualizarGraficos);
+    document.getElementById("selectorCSV").addEventListener("change", e => {
+      cargarCSV(e.target.value);
+    });
+
+    // Cargar CSV inicial
+    cargarCSV(document.getElementById("selectorCSV").value);
+  </script>
+</body>
+</html>
