@@ -79,8 +79,8 @@
   <script>
     let data = [];
     const UMBRAL = 14235000; // 10 SMLV en pesos
+    const BASE_URL = "https://decdi-backend-service.onrender.com/api/data/"; // ✅ usa tu backend Render
 
-    // Diccionario de mapeo
     const fenomenoMap = {
       "A": "Sabotaje",
       "B": "Inversión Simulada",
@@ -88,74 +88,76 @@
       "NA": "No Clasificado"
     };
 
-    // Función segura para parsear cuantías
     function parseNumber(valor) {
       if (!valor) return 0;
       return parseFloat(
         valor.toString()
-             .replace(/\./g, "")   // elimina separadores de miles
-             .replace(/,/g, ".")   // convierte coma en decimal
+             .replace(/\./g, "")
+             .replace(/,/g, ".")
       ) || 0;
     }
 
-    // Función para cargar datos desde el CSV seleccionado
-    function cargarCSV(url) {
-      d3.csv(url).then(csv => {
-        data = csv.map(d => ({
-          fenomeno: d.FENOMENO || "SIN_FENOMENO",
-          fenomenoLetra: d.FENOMENO_LETRA || "NA",
-          umbral: d.SUPERA_UMBRAL_SMLV ? d.SUPERA_UMBRAL_SMLV.toLowerCase() : "false",
-          cuantia: parseNumber(d.CUANTIA_MAXIMA) // cuantía ya viene en pesos
-        }));
+    // ✅ Ajuste principal: ahora los CSV se leen desde tu backend Flask seguro
+    function cargarCSV(nombreArchivo) {
+      const url = BASE_URL + nombreArchivo;
+      console.log("🔗 Cargando CSV desde backend:", url);
 
-        // Limpiar select de fenómenos
-        const selectFenomeno = document.getElementById("filtroFenomeno");
-        selectFenomeno.innerHTML = '<option value="Todos">Todos</option>';
+      d3.text(url)
+        .then(textoCSV => {
+          const csv = d3.csvParse(textoCSV);
 
-        // Poblar opciones de FENOMENO dinámicamente
-        const fenomenosUnicos = Array.from(new Set(data.map(d => d.fenomeno)));
-        fenomenosUnicos.forEach(f => {
-          const opt = document.createElement("option");
-          opt.value = f;
-          opt.textContent = f;
-          selectFenomeno.appendChild(opt);
+          data = csv.map(d => ({
+            fenomeno: d.FENOMENO || "SIN_FENOMENO",
+            fenomenoLetra: d.FENOMENO_LETRA || "NA",
+            umbral: d.SUPERA_UMBRAL_SMLV ? d.SUPERA_UMBRAL_SMLV.toLowerCase() : "false",
+            cuantia: parseNumber(d.CUANTIA_MAXIMA)
+          }));
+
+          const selectFenomeno = document.getElementById("filtroFenomeno");
+          selectFenomeno.innerHTML = '<option value="Todos">Todos</option>';
+
+          const fenomenosUnicos = Array.from(new Set(data.map(d => d.fenomeno)));
+          fenomenosUnicos.forEach(f => {
+            const opt = document.createElement("option");
+            opt.value = f;
+            opt.textContent = f;
+            selectFenomeno.appendChild(opt);
+          });
+
+          actualizarGraficos();
+        })
+        .catch(err => {
+          console.error("❌ Error cargando CSV:", err);
+          alert("No se pudo cargar el archivo: " + nombreArchivo);
         });
-
-        actualizarGraficos();
-      });
     }
 
     function actualizarGraficos() {
       const filtroFenomeno = document.getElementById("filtroFenomeno").value;
       const filtroUmbral = document.getElementById("filtroUmbral").value;
 
-      // Filtrar datos
       let filtrados = data.filter(d => 
         (filtroFenomeno === "Todos" || d.fenomeno === filtroFenomeno) &&
         (filtroUmbral === "Todos" || d.umbral === filtroUmbral)
       );
 
-      // Resumen
       const total = data.length;
       const totalFiltrados = filtrados.length;
       const porcentaje = ((totalFiltrados / total) * 100).toFixed(1);
       document.getElementById("resumen").innerText =
         `Casos filtrados: ${totalFiltrados} (${porcentaje}%) de ${total}`;
 
-      // Agrupar por fenómeno letra (con nombres largos)
       const conteoFenomeno = {};
       filtrados.forEach(d => {
         const nombre = fenomenoMap[d.fenomenoLetra] || d.fenomenoLetra;
         conteoFenomeno[nombre] = (conteoFenomeno[nombre] || 0) + 1;
       });
 
-      // Agrupar por umbral
       const conteoUmbral = {};
       filtrados.forEach(d => {
         conteoUmbral[d.umbral] = (conteoUmbral[d.umbral] || 0) + 1;
       });
 
-      // Gráfico de barras
       Plotly.newPlot("graficoBarras", [{
         x: Object.keys(conteoFenomeno),
         y: Object.values(conteoFenomeno),
@@ -170,7 +172,6 @@
         margin: {t: 60, b: 60, l: 60, r: 40}
       });
 
-      // Gráfico de anillo
       Plotly.newPlot("graficoAnillo", [{
         labels: Object.keys(conteoUmbral),
         values: Object.values(conteoUmbral),
@@ -181,13 +182,10 @@
         title: "Distribución por SUPERA UMBRAL 10 SMLV"
       });
 
-      // 📊 Gráfico de promedio de cuantías
       const promedioFenomeno = {};
       filtrados.forEach(d => {
         const nombre = fenomenoMap[d.fenomenoLetra] || d.fenomenoLetra;
-        if (!promedioFenomeno[nombre]) {
-          promedioFenomeno[nombre] = {suma: 0, count: 0};
-        }
+        if (!promedioFenomeno[nombre]) promedioFenomeno[nombre] = {suma: 0, count: 0};
         promedioFenomeno[nombre].suma += d.cuantia;
         promedioFenomeno[nombre].count += 1;
       });
@@ -220,14 +218,12 @@
       });
     }
 
-    // Listeners
     document.getElementById("filtroFenomeno").addEventListener("change", actualizarGraficos);
     document.getElementById("filtroUmbral").addEventListener("change", actualizarGraficos);
     document.getElementById("selectorCSV").addEventListener("change", e => {
       cargarCSV(e.target.value);
     });
 
-    // Cargar CSV inicial
     cargarCSV(document.getElementById("selectorCSV").value);
   </script>
 </body>
