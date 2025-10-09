@@ -3,13 +3,36 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Dashboard DECDI - Análisis de casos" />
-    <title>📊 DECDI Dashboard</title>
-    <link rel="icon" type="image/png" href="/decdi-analysis-site/favicon.png" />
+    <title>DECDI - Análisis</title>
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="/favicon.png" />
+
+    <!-- Fuente y estilos globales opcionales -->
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      body {
+        margin: 0;
+        font-family: 'Inter', sans-serif;
+        background-color: #f8f9fa;
+        color: #222;
+      }
+    </style>
   </head>
 
-  <body class="bg-gray-50">
+  <body>
+    <noscript>Necesitas habilitar JavaScript para usar esta aplicación.</noscript>
+
+    <!-- Aquí React monta la app -->
     <div id="root"></div>
-    <script type="module" src="/decdi-analysis-site/src/main.jsx"></script>
+
+    <!-- Script principal -->
+    <!-- ✅ Vite usa /src/main.jsx -->
+    <script type="module" src="/src/main.jsx"></script>
+
+    <!-- ✅ CRA usa /static/js/bundle.js después del build -->
   </body>
 </html>
