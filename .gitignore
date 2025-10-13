@@ -21,3 +21,8 @@
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+/node_modules/  -> dependencias instaladas
+/dist/           -> carpeta de producción generada por Vite
+/.env.local      -> variables de entorno locales (opcional)
+
