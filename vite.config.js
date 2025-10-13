@@ -4,5 +4,5 @@ import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
-  base: '/decdi-analysis-site/'
+  base: '/decdi-analysis-site/',
 })
