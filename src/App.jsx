@@ -6,7 +6,7 @@ function App() {
   const isAuth = localStorage.getItem("auth") === "true";
 
   return (
-    <BrowserRouter>
+    <BrowserRouter basename="/decdi-analysis-site">
       <Routes>
         <Route path="/" element={<Login />} />
         <Route

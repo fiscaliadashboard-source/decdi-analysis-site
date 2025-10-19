@@ -1,15 +1,25 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import OverlayLoader from "../components/OverlayLoader";
 
 export default function Login() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const navigate = useNavigate();
+
+  // ✅ Si ya hay sesión activa, redirige automáticamente
+  useEffect(() => {
+    if (localStorage.getItem("auth") === "true") {
+      navigate("/dashboard");
+    }
+  }, [navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+    setLoading(true);
 
     try {
       const res = await fetch("https://decdi-backend-service.onrender.com/api/auth", {
@@ -20,58 +30,75 @@ export default function Login() {
 
       if (res.ok) {
         const data = await res.json();
+
+        // ✅ Guarda sesión
         localStorage.setItem("token", data.token);
-        navigate("/dashboard");
+        localStorage.setItem("auth", "true");
+
+        setLoading(false); // Detiene el loader antes del navigate
+        setTimeout(() => navigate("/dashboard"), 100); // Delay mínimo para asegurar render
       } else {
         setError("Credenciales incorrectas");
+        setLoading(false);
       }
     } catch (err) {
-      console.error(err);
+      console.error("❌ Error de autenticación:", err);
       setError("Error de conexión con el servidor");
+      setLoading(false);
     }
   };
 
   return (
-    <div className="flex items-center justify-center h-screen bg-gray-100">
-      <form
-        onSubmit={handleSubmit}
-        className="bg-white p-8 rounded-2xl shadow-lg w-96"
-      >
-        <h2 className="text-2xl font-bold text-center mb-6">Iniciar Sesión</h2>
+    <div className="relative flex flex-col items-center justify-center min-h-screen bg-gray-100 px-4">
+      {loading && <OverlayLoader mensaje="Validando credenciales..." />}
 
-        <div className="mb-4">
-          <label className="block text-gray-700 mb-2">Usuario</label>
-          <input
-            type="text"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring focus:border-blue-300"
-            required
-          />
-        </div>
+      <div className="bg-white shadow-lg rounded-2xl p-8 w-full max-w-sm">
+        <h2 className="text-2xl font-bold text-center text-gray-800 mb-6">
+          Iniciar sesión
+        </h2>
 
-        <div className="mb-6">
-          <label className="block text-gray-700 mb-2">Contraseña</label>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring focus:border-blue-300"
-            required
-          />
-        </div>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-600 mb-1">
+              Usuario
+            </label>
+            <input
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              required
+              className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
 
-        {error && (
-          <p className="text-red-500 text-center mb-4">{error}</p>
-        )}
+          <div>
+            <label className="block text-sm font-medium text-gray-600 mb-1">
+              Contraseña
+            </label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
 
-        <button
-          type="submit"
-          className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition"
-        >
-          Entrar
-        </button>
-      </form>
+          {error && (
+            <p className="text-red-500 text-sm text-center font-medium">
+              {error}
+            </p>
+          )}
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition"
+          >
+            {loading ? "Verificando..." : "Ingresar"}
+          </button>
+        </form>
+      </div>
     </div>
   );
 }
