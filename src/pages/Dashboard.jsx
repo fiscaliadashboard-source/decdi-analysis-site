@@ -81,7 +81,8 @@ export default function Dashboard() {
 
     const conteoUmbral = {};
     filtrados.forEach((d) => {
-      conteoUmbral[d.umbral] = (conteoUmbral[d.umbral] || 0) + 1;
+      const key = d.umbral === "true" ? "SI" : "NO";
+      conteoUmbral[key] = (conteoUmbral[key] || 0) + 1;
     });
 
     const promedioFenomeno = {};
@@ -102,7 +103,8 @@ export default function Dashboard() {
   const layoutBase = {
     paper_bgcolor: 'rgba(0,0,0,0)', // fondo transparente
     plot_bgcolor: 'rgba(0,0,0,0)',
-    margin: { l: 60, r: 60, t: 60, b: 60 },
+    margin: { l: 60, r: 40, t: 100, b: 60 },
+    font: { size: 12, family: "Inter, sans-serif", color: "#333" },
   };  
 
   Plotly.react("graficoBarras", [
@@ -112,9 +114,21 @@ export default function Dashboard() {
       type: "bar",
       marker: { color: "#3498db" },
       text: Object.values(conteoFenomeno),
-      textposition: "outside",
+      textposition: "auto",
+      textfont: { size: 14, color: "#333" },
     },
-  ], layoutBase, { title: "Casos por Fenómeno" });
+  ],
+  {
+    layoutBase,
+    title: {
+      text: "Casos por Fenómeno",
+      font: { size: 18 },
+      x: 0.5,
+      xanchor: "center",
+    },
+    margin: { l: 60, r: 40, t: 120, b: 60 }, 
+    height: 400,
+  });
 
   Plotly.react("graficoAnillo", [
     {
@@ -123,8 +137,19 @@ export default function Dashboard() {
       type: "pie",
       hole: 0.5,
       marker: { colors: ["#2ecc71", "#e74c3c"] },
+      textinfo: "label+percent",
+      insidetextorientation: "horizontal",
     },
-  ],layoutBase, { title: "Distribución por SUPERA UMBRAL 10 SMLV" });
+  ], { layoutBase, title: { text: "Distribución por SUPERA UMBRAL 10 SMLV", font: { size: 16 } },
+        legend: {
+          x: -0.1,       // mueve hacia la izquierda (-0.1 es un poco; -0.3 la deja más pegada)
+          y: 0.5,        // posición vertical centrada
+          bgcolor: "rgba(0,0,0,0)", // fondo transparente
+          font: { size: 12 }
+        },
+        showlegend: true,
+      }
+    );
 
   Plotly.react("graficoPromedio", [
     {
@@ -135,6 +160,8 @@ export default function Dashboard() {
       marker: { color: "#9b59b6" },
       text: yPromedio.map((v) => `$${v.toLocaleString("es-CO")}`),
       textposition: "outside",
+      cliponaxis: false,
+      textfont: { size: 12, color: "#333" },
     },
     {
       x: x,
@@ -144,11 +171,24 @@ export default function Dashboard() {
       name: "Umbral 10 SMLV ($14.235.000)",
       line: { color: "red", dash: "dash" },
     },
-  ],layoutBase, {
-    title: "Promedio de Cuantías por Fenómeno",
-    yaxis: { title: "Cuantía Promedio ($)", rangemode: "tozero" },
+  ],  
+    {
+    layoutBase,
+    title: {
+      text: "Promedio de Cuantías por Fenómeno",
+      font: { size: 18 },
+      x: 0.5,
+      xanchor: "center",
+    },
+    margin: { l: 60, r: 40, t: 120, b: 60 }, // más espacio superior
+    height: 450,
+    yaxis: {
+      title: "Cuantía Promedio ($)",
+      rangemode: "tozero",
+      tickformat: "~s", // usa notación abreviada (ej. 1M, 500K)
+    },
+    legend: { orientation: "h", x: 0.5, xanchor: "center", y: -0.2 },
   });
-
   }
 
   return (
